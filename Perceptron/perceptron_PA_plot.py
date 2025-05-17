@@ -9,7 +9,7 @@ def activation_function1(x: float) -> float:
 class PerceptronVerbose:
     def __init__(self):
         self.activation_function = activation_function1
-        self.weights = np.array([0.5, 0, 1])  # w0 (bias jako x1), w1, w2
+        self.weights = np.array([0.5, 0, 1])  # w0 (dla biasu), w1, w2
         self.fig = None
         self.ax = None
         self.setup_plot()
@@ -35,15 +35,24 @@ class PerceptronVerbose:
         self.ax.set_ylabel('x3')
         self.ax.grid(True)
         
-        # Równanie granicy decyzyjnej: w0 + w1*x2 + w2*x3 = 0
-        # Przekształcamy to do postaci x3 = -(w0 + w1*x2)/w2
-        if self.weights[2] != 0:  # Sprawdzamy, czy w2 nie jest zerem
+        # Równanie granicy decyzyjnej: w0*x1 + w1*x2 + w2*x3 = 0
+        # Dla wizualizacji na płaszczyźnie (x2, x3) potrzebujemy znać wartość x1 (bias)
+        # Pobieramy wartość x1 (bias) z pierwszego przykładu treningowego
+        x1_bias = self.X_train[0][0] if len(self.X_train) > 0 else 1.0
+        
+        if self.weights[2] != 0:  # Sprawdzamy, czy w2 nie jest zerem bo 
             x2_values = np.linspace(-0.5, 1.5, 100)
-            x3_values = -(self.weights[0] + self.weights[1] * x2_values) / self.weights[2]
+            # Przekształcamy równanie do postaci x3 = -(w0*x1 + w1*x2)/w2
+            x3_values = -(self.weights[0]*x1_bias + self.weights[1] * x2_values) / self.weights[2]
+            print(f"  Wzór granicy decyzyjnej: x3 = -({self.weights[0]}*{x1_bias} + {self.weights[1]}*x2) / {self.weights[2]}")
+            # Rysowanie granicy decyzyjnej
             self.ax.plot(x2_values, x3_values, 'r-', label='Granica decyzyjna')
         else:
             # W przypadku gdy w2=0, granica jest pionowa linia
-            x2_boundary = -self.weights[0] / self.weights[1] if self.weights[1] != 0 else None
+            # Równanie przyjmuje postać w0*x1 + w1*x2 = 0, więc x2 = -(w0*x1)/w1
+            x2_boundary = -(self.weights[0]*x1_bias) / self.weights[1] if self.weights[1] != 0 else None
+            print(f"  Wzór granicy decyzyjnej dla przykladu : x2 = -({self.weights[0]}*{x1_bias}) / {self.weights[1]}")
+            print(f"  Granica pionowa: x2 = {x2_boundary}")
             if x2_boundary is not None:
                 self.ax.axvline(x=x2_boundary, color='r', label='Granica decyzyjna')
         
@@ -60,7 +69,7 @@ class PerceptronVerbose:
         if example is not None:
             x = self.X_train[example]
             self.ax.scatter(x[1], x[2], color='green', marker='*', s=200, 
-                          label=f'Aktualna iteracja {example+1}')
+                          label=f'Aktualny przykład {example+1}')
         
         # Dodanie legendy bez duplikatów
         handles, labels = self.ax.get_legend_handles_labels()
@@ -70,7 +79,7 @@ class PerceptronVerbose:
         # Tytuł wykresu
         title = f'Epoka {epoch+1}'
         if example is not None:
-            title += f', Iteracja {example+1}'
+            title += f', Przykład {example+1}'
         title += f'\nWagi: w0={self.weights[0]:.2f}, w1={self.weights[1]:.2f}, w2={self.weights[2]:.2f}'
         self.ax.set_title(title)
         
@@ -80,9 +89,18 @@ class PerceptronVerbose:
         plt.pause(0.5)  # Pauza aby zobaczyć zmiany
     
     def process_input(self, x: list[float]) -> float:
+        """Oblicza wartość wyjściową perceptronu dla podanego wektora wejściowego"""
         return self.activation_function(np.dot(x, self.weights))
 
     def train(self, X_train: list[list[float]], y_expected: list[float], epochs: int, learning_rate: float) -> None:
+        """Trenuje perceptron na danych treningowych
+        Args:
+            X_train: Lista wektorów wejściowych. Pierwszy element każdego wektora to bias.
+            y_expected: Lista oczekiwanych wyjść dla każdego wektora wejściowego
+            epochs: Maksymalna liczba epok uczenia
+            learning_rate: Współczynnik uczenia (szybkość uczenia)
+        """
+        
         self.X_train = X_train
         self.y_expected = y_expected
         
@@ -101,7 +119,7 @@ class PerceptronVerbose:
                 self.weights = self.weights + correction * x
                 if error != 0:
                     errors += 1
-                print(f"  Iteracja {i+1}: x={x.tolist()}, y={y_expected[i]}, y = f(v)={int(y_pred)}, error(d-y) ={error}, wagi={self.weights.tolist()}")
+                print(f"  Przykład {i+1}: x={x.tolist()}, y (wartość oczekiwana) = {y_expected[i]},  f(v)={int(y_pred)}, error(d-y) ={error}, wagi={self.weights.tolist()}")
                 
                 # Rysowanie granicy decyzyjnej po każdej aktualizacji wag
                 self.plot_decision_boundary(epoch, example=i)
