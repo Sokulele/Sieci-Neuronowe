@@ -65,26 +65,7 @@ class PerceptronBUPA:
             self.ax.set_ylim([-0.5, 1.5])
             self.ax.set_xlabel('x2')
             self.ax.set_ylabel('x3')
-            self.ax.grid(True)
-    
-    def plot_transformed_data(self, X_original, X_transformed, y_expected):
-        """Wizualizacja danych w przestrzeni transformowanej"""
-        # Tworzymy wykres 3D
-        self.setup_plot(is_3d=True)
-        
-        # Kolory dla klas
-        colors = ['blue', 'red']
-        
-        # Rysujemy punkty w 3D (oryginalne x2, x3 + pierwsza wartość RBF)
-        # for i, (x_orig, x_trans) in enumerate(zip(X_original, X_transformed)):
-        #     color_idx = int(y_expected[i])
-        #     self.ax_3d.scatter(x_orig[1], x_orig[2], x_trans[1], 
-        #                      color=colors[color_idx], marker='o', s=100)
-            
-        # self.ax_3d.set_title('Dane po transformacji RBF')
-        # plt.tight_layout()
-        # plt.draw()
-        # plt.pause(0.5)
+            self.ax.grid(True)       
     
     def plot_decision_surface(self, X_original, centers, sigma, epoch=None):
         """Rysowanie powierzchni decyzyjnej w oryginalnej przestrzeni"""
@@ -225,10 +206,7 @@ class PerceptronBUPA:
         print("Dane po transformacji RBF:")
         for i, (x_orig, x_trans) in enumerate(zip(X_train, X_transformed)):
             print(f"Oryginalne: {x_orig}, Po transformacji: {x_trans}")
-        
-        # Wizualizacja transformowanych danych
-        self.plot_transformed_data(X_train, X_transformed, y_expected)
-        
+                
         # Trenowanie perceptronu na danych po transformacji
         self.train_bupa(X_transformed, y_expected, epochs, learning_rate)
         
@@ -241,6 +219,45 @@ class PerceptronBUPA:
         X_transformed = transform_with_rbf(X, centers, sigma)
         return [self.process_input(x) for x in X_transformed]
 
+    
+    def plot_decision_surface_3d(self, X_original, centers, sigma):
+        """Rysowanie 3D powierzchni decyzyjnej perceptronu po RBF"""
+        from mpl_toolkits.mplot3d import Axes3D
+
+        # Generujemy siatkę punktów
+        x2_range = np.linspace(-0.2, 1.2, 100)
+        x3_range = np.linspace(-0.2, 1.2, 100)
+        x2_grid, x3_grid = np.meshgrid(x2_range, x3_range)
+
+        z_grid = np.zeros_like(x2_grid)
+
+        # Obliczamy wartość net input (bez aktywacji)
+        for i in range(x2_grid.shape[0]):
+            for j in range(x2_grid.shape[1]):
+                point = np.array([x2_grid[i, j], x3_grid[i, j]])
+                phi = [1.0] + [rbf(point, c, sigma) for c in centers]  # φ(x)
+                net_input = np.dot(self.weights, phi)
+                z_grid[i, j] = net_input
+
+        # Tworzymy wykres 3D
+        fig = plt.figure(figsize=(10, 8))
+        ax = fig.add_subplot(111, projection='3d')
+        ax.plot_surface(x2_grid, x3_grid, z_grid, cmap='coolwarm', alpha=0.8, edgecolor='none')
+        ax.contour(x2_grid, x3_grid, z_grid, levels=[0], colors='black', offset=0)
+
+        # Dodajemy dane treningowe
+        for i, point in enumerate(X_original):
+            x, y = point[1], point[2]
+            z = 1 if self.y_expected[i] else -1
+            ax.scatter(x, y, z, color='red' if self.y_expected[i] else 'blue', s=100)
+
+        ax.set_xlabel('x2')
+        ax.set_ylabel('x3')
+        ax.set_zlabel('net input (w^T * φ(x))')
+        ax.set_title('3D powierzchnia decyzyjna perceptronu (XOR po RBF)')
+        plt.tight_layout()
+        plt.show()
+    
 
 # Dane treningowe (x1=bias=1, x2, x3)
 x_train = [[1, 0, 0], [1, 0, 1], [1, 1, 0], [1, 1, 1]]
@@ -263,53 +280,9 @@ perceptron_bupa.solve_xor_with_rbf(
     learning_rate=0.1
 )
 
+perceptron_bupa.plot_decision_surface_3d(x_train, centers, 0.5)
+
 # Wyświetlanie ostatecznego wykresu
 plt.ioff()  # Wyłączenie trybu interaktywnego
 plt.show()
 
-# # Test działania na danych treningowych
-# print("\nTest na danych treningowych:")
-# predictions = perceptron_bupa.predict(x_train, centers, sigma=0.5)
-# for x, y_true, y_pred in zip(x_train, y_train, predictions):
-#     print(f"Wejście: {x[1:]}, Oczekiwane: {y_true}, Predykcja: {int(y_pred)}")
-
-# # Wizualizacja 3D przestrzeni cech po transformacji RBF
-# def plot_rbf_space():
-#     fig = plt.figure(figsize=(10, 8))
-#     ax = fig.add_subplot(111, projection='3d')
-    
-#     # Generowanie gęstej siatki punktów w przestrzeni wejściowej
-#     x2_range = np.linspace(-0.5, 1.5, 30)
-#     x3_range = np.linspace(-0.5, 1.5, 30)
-#     x2_grid, x3_grid = np.meshgrid(x2_range, x3_range)
-    
-#     # Dla każdego punktu w siatce, obliczamy wartości RBF dla pierwszego i drugiego centrum
-#     grid_rbf1 = np.zeros_like(x2_grid)
-#     grid_rbf2 = np.zeros_like(x2_grid)
-    
-#     for i in range(len(x2_range)):
-#         for j in range(len(x3_range)):
-#             point = np.array([x2_grid[j, i], x3_grid[j, i]])
-#             grid_rbf1[j, i] = rbf(point, centers[0], sigma=0.5)
-#             grid_rbf2[j, i] = rbf(point, centers[1], sigma=0.5)
-    
-#     # Rysowanie powierzchni RBF
-#     ax.plot_surface(x2_grid, x3_grid, grid_rbf1, cmap=cm.coolwarm, alpha=0.5, label='RBF1')
-#     ax.plot_surface(x2_grid, x3_grid, grid_rbf2, cmap=cm.viridis, alpha=0.5, label='RBF2')
-    
-#     # Dodanie punktów danych
-#     colors = ['blue', 'red']
-#     for i, x in enumerate(x_train):
-#         color_idx = int(y_train[i])
-#         ax.scatter(x[1], x[2], 0, color=colors[color_idx], marker='o', s=100)
-    
-#     ax.set_xlabel('x2')
-#     ax.set_ylabel('x3')
-#     ax.set_zlabel('RBF Value')
-#     ax.set_title('Przestrzeń cech po transformacji RBF')
-    
-#     plt.tight_layout()
-#     plt.savefig('rbf_feature_space.png')
-#     plt.show()
-
-# plot_rbf_space()
